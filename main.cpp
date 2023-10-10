@@ -27,15 +27,15 @@ void printBoard(const std::vector<std::vector<int>>& board, int numForbidden);
 
 
 //Checking if a move is valid on the current board setup
-bool isMoveValid(int x, int y, const std::vector<std::vector<int>>& board) {
+bool isMoveValid(int x, int y, const std::vector<std::vector<int>>& board, int lookupMove) {
     if (x < 0 || x >= board.size() || y < 0 || y >= board[0].size()) {
         return false; // Out of board boundaries
     }
-    return board[x][y] == 0; // Return true only if square is unvisited and not forbidden
+    return board[x][y] == lookupMove; // Return true only if square is the lookup move and not forbidden
 }
 
 // Get possible moves for specific square based on the current scenario
-std::vector<std::pair<int, int>> getPossibleMoves(int x, int y, const std::vector<std::vector<int>>& board) {
+std::vector<std::pair<int, int>> getPossibleMoves(int x, int y, const std::vector<std::vector<int>>& board, int lookupMove) {
     static const int moveX[] = {2, 1, -1, -2, -2, -1, 1, 2};
     static const int moveY[] = {1, 2, 2, 1, -1, -2, -2, -1};
 
@@ -43,24 +43,85 @@ std::vector<std::pair<int, int>> getPossibleMoves(int x, int y, const std::vecto
     for (int i = 0; i < 8; ++i) {
         int newX = x + moveX[i];
         int newY = y + moveY[i];
-        if (isMoveValid(newX, newY, board)) {
+        if (isMoveValid(newX, newY, board, lookupMove)) {
             moves.push_back({newX, newY});
         }
     }
     return moves;
 }
 
+bool isClosedTour(int currentX, int currentY, int startX, int startY, const std::vector<std::vector<int>>& board) {
+    // Get all possible moves from the current position
+    auto possibleMoves = getPossibleMoves(currentX, currentY, board, 1);
+
+    // Check if any of the possible moves match the starting position
+    for (const auto& move : possibleMoves) {
+        if (move.first == startX && move.second == startY) {
+            return true; // Found a move that goes back to the starting position
+        }
+    }
+    return false; // No forward move matches the starting position
+}
+
+bool isMagicBoard(const std::vector<std::vector<int>>& board) {
+    int n = board.size();
+    if (n != board[0].size()) {
+        return false; // Not a square board
+    }
+
+    // Calculate the sum for the first row to compare with others
+    int expectedSum = 0;
+    for (int value : board[0]) {
+        expectedSum += value;
+    }
+
+    // Check rows
+    for (int i = 1; i < n; i++) {
+        int rowSum = 0;
+        for (int j = 0; j < n; j++) {
+            rowSum += board[i][j];
+        }
+        if (rowSum != expectedSum) {
+            return false;
+        }
+    }
+
+    // Check columns
+    for (int j = 0; j < n; j++) {
+        int colSum = 0;
+        for (int i = 0; i < n; i++) {
+            colSum += board[i][j];
+        }
+        if (colSum != expectedSum) {
+            return false;
+        }
+    }
+
+    // Check diagonals
+    int diag1Sum = 0, diag2Sum = 0;
+    for (int i = 0; i < n; i++) {
+        diag1Sum += board[i][i];
+        diag2Sum += board[i][n - 1 - i];
+    }
+
+    if (diag1Sum != expectedSum || diag2Sum != expectedSum) {
+        return false;
+    }
+
+    return true;
+}
+
 int computeMaxMoveCount(int x, int y, const std::vector<std::vector<int>>& board) {
-    auto firstMoves = getPossibleMoves(x, y, board);
+    auto firstMoves = getPossibleMoves(x, y, board, 0);
     for (const auto& firstMove : firstMoves) {
-        auto secondMoves = getPossibleMoves(firstMove.first, firstMove.second, board);
+        auto secondMoves = getPossibleMoves(firstMove.first, firstMove.second, board, 0);
 
         for (const auto& secondMove : secondMoves) {
             // Skip if the second move is the starting position or the first move.
             if ((secondMove.first == x && secondMove.second == y) ||
                 (secondMove.first == firstMove.first && secondMove.second == firstMove.second)) continue;
 
-            auto thirdMoves = getPossibleMoves(secondMove.first, secondMove.second, board);
+            auto thirdMoves = getPossibleMoves(secondMove.first, secondMove.second, board, 0);
 
             // Filter out third moves that overlap with starting, first, or second positions.
             thirdMoves.erase(std::remove_if(thirdMoves.begin(), thirdMoves.end(), [&](const std::pair<int, int>& move) {
@@ -75,17 +136,19 @@ int computeMaxMoveCount(int x, int y, const std::vector<std::vector<int>>& board
     return maxMoveCount;
 }
 
-bool solveKnightTour(int x, int y, int moveCount, std::vector<std::vector<int>>& board, const int numForbidden) {
-    // If all non-forbidden squares are visited, the Tour is complete
-    if (moveCount == board.size() * board[0].size() - numForbidden + 1) {
+bool solveKnightTour(int x, int y, int startX, int startY, int moveCount, std::vector<std::vector<int>>& board, const int numForbidden, char closedTourChoice, char magicTourChoice) {
+    // If all non-forbidden squares are visited and, if requested, the tour is closed, only then the Tour is complete
+    if ((moveCount == board.size() * board[0].size() - numForbidden + 1) &&
+        ((closedTourChoice == 'N' || closedTourChoice == 'n') || isClosedTour(x, y, startX, startY, board)) &&
+        ((magicTourChoice == 'N' || magicTourChoice == 'n') || isMagicBoard(board))){
         return true;
     }
 
-    auto moves = getPossibleMoves(x, y, board);
+    auto moves = getPossibleMoves(x, y, board, 0);
 
     // Sort the possible next moves based on the number of their own possible next moves (Warnsdorff's rule)
     std::sort(moves.begin(), moves.end(), [&](const std::pair<int, int>& a, const std::pair<int, int>& b) {
-        return getPossibleMoves(a.first, a.second, board).size() < getPossibleMoves(b.first, b.second, board).size();
+        return getPossibleMoves(a.first, a.second, board, 0).size() < getPossibleMoves(b.first, b.second, board, 0).size();
     });
 
     if (moveCount == 5) {  // moveCount == 1 is the starting square, so not counted as a move
@@ -97,7 +160,7 @@ bool solveKnightTour(int x, int y, int moveCount, std::vector<std::vector<int>>&
         int nextY = move.second;
         board[nextX][nextY] = moveCount;
 
-        if (solveKnightTour(nextX, nextY, moveCount + 1, board, numForbidden)) {
+        if (solveKnightTour(nextX, nextY, startX, startY, moveCount + 1, board, numForbidden, closedTourChoice, magicTourChoice)) {
             return true;
         }
 
@@ -139,10 +202,11 @@ void printBoard(const std::vector<std::vector<int>>& board, int numForbidden) {
 int main() {
     std::cout << "--- Welcome to the Knight's Tour Problem Solver! ---\n\n"
               << "The setup includes:\n"
-              << "1.The size of the board (Min 3x3; Max 10x10)\n"
-              << "2.The number of forbidden squares\n"
-              << "3.The positions of the forbidden squares, if there are any\n"
-              << "4.The starting point\n\n"
+              << "1. The size of the board (Min 3x3; Max 10x10)\n"
+              << "2. The number of forbidden squares\n"
+              << "3. The positions of the forbidden squares, if there are any\n"
+              << "4. Choose whether to look for a closed tour\n"
+              << "5. The starting point\n\n"
               << "Please keep in mind that for larger boards with forbidden squares,\n"
               << "in some cases the computation time might be longer.\n\n"
               << "Let's begin!\n\n";
@@ -187,6 +251,25 @@ int main() {
         board[x-1][y-1] = -1;
     }
 
+    char closedTourChoice;
+    std::cout << "Would you like to look for a closed tour? (Y/N): ";
+    while (!(std::cin >> closedTourChoice) || (closedTourChoice != 'Y' && closedTourChoice != 'y' && closedTourChoice != 'N' && closedTourChoice != 'n')) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cout << "Invalid choice. Please enter Y or N: ";
+    }
+
+    char magicTourChoice;
+    /*TO REPLACE magicTourChoice = 'N';
+    std::cout << "Would you like to look for a magical tour? (Y/N): ";
+    while (!(std::cin >> magicTourChoice) || (magicTourChoice != 'Y' && magicTourChoice != 'y' && magicTourChoice != 'N' && magicTourChoice != 'n')) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cout << "Invalid choice. Please enter Y or N: ";
+    }
+    */
+    magicTourChoice = 'N';
+
     int startX, startY;
     std::cout << "Enter the starting position (row column): ";
     while (!(std::cin >> startX >> startY) || startX < 1 || startX > rows || startY < 1 || startY > columns || board[startX-1][startY-1] == -1) {
@@ -194,11 +277,13 @@ int main() {
         std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         std::cout << "Invalid starting position. Please retry.\n";
     }
-    board[startX-1][startY-1] = 1;
-    int maxMoveCount = computeMaxMoveCount(startX-1, startY-1, board);
+    --startX;
+    --startY;
+    board[startX][startY] = 1;
+    int maxMoveCount = computeMaxMoveCount(startX, startY, board);
 
     std::cout << "Searching for a solution...\n";
-    if (solveKnightTour(startX-1, startY-1, 2, board, numForbidden)) {
+    if (solveKnightTour(startX, startY, startX, startY, 2, board, numForbidden, closedTourChoice, magicTourChoice)) {
         std::cout << deadEnds + 1 << " path(s) tested. Solution found!\n";
         printBoard(board, numForbidden);
     } else {
