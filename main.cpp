@@ -5,7 +5,7 @@
 #include "Board.h"
 #include "KnightTourSolver.h"
 
-int main() {
+void userPrompt(int &rows, int &columns, int &numForbidden, std::vector<std::pair<int, int>> &forbiddenPositions, char &closedTourChoice, char &magicTourChoice, int &startX, int &startY) {
     std::cout << "--- Welcome to the Knight's Tour Problem Solver! ---\n\n"
               << "The setup includes:\n"
               << "1. The size of the board (Min 3x3; Max 10x10)\n"
@@ -16,8 +16,6 @@ int main() {
               << "Please keep in mind that for larger boards with forbidden squares,\n"
               << "in some cases the computation time might be longer.\n\n"
               << "Let's begin!\n\n";
-
-    int rows, columns;
 
     std::cout << "Enter number of rows (Min. 3; Max. 10): ";
     while (!(std::cin >> rows) || rows < 3 || rows > 10) {
@@ -35,7 +33,6 @@ int main() {
         std::cout << "Enter number of columns (Min. 3; Max. 10): ";
     }
 
-    int numForbidden;
     std::cout << "Enter number of forbidden squares: ";
     while (!(std::cin >> numForbidden) || numForbidden < 0 || numForbidden > rows * columns - 1) {
         std::cin.clear();
@@ -44,7 +41,6 @@ int main() {
         std::cout << "Enter number of forbidden squares: ";
     }
 
-    std::vector<std::pair<int, int>> forbiddenPositions(numForbidden);
     for (int i = 0; i < numForbidden; ++i) {
         int x, y;
         std::cout << "Enter coordinates for forbidden square " << i + 1 << " (row column): ";
@@ -53,10 +49,9 @@ int main() {
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             std::cout << "Invalid coordinates. Please retry.\n";
         }
-        forbiddenPositions[i] = {x, y};
+        forbiddenPositions.push_back({x, y});
     }
 
-    char closedTourChoice;
     std::cout << "Would you like to look for a closed tour? (Y/N): ";
     while (!(std::cin >> closedTourChoice) || (closedTourChoice != 'Y' && closedTourChoice != 'y' && closedTourChoice != 'N' && closedTourChoice != 'n')) {
         std::cin.clear();
@@ -64,7 +59,6 @@ int main() {
         std::cout << "Invalid choice. Please enter Y or N: ";
     }
 
-    char magicTourChoice;
     std::cout << "Would you like to look for a magical tour? (Y/N): ";
     while (!(std::cin >> magicTourChoice) || (magicTourChoice != 'Y' && magicTourChoice != 'y' && magicTourChoice != 'N' && magicTourChoice != 'n')) {
         std::cin.clear();
@@ -72,7 +66,6 @@ int main() {
         std::cout << "Invalid choice. Please enter Y or N: ";
     }
 
-    int startX, startY;
     std::cout << "Enter the starting position (row column): ";
     while (true) {
         if (!(std::cin >> startX >> startY) || startX < 1 || startX > rows || startY < 1 || startY > columns) {
@@ -85,6 +78,15 @@ int main() {
             break;  // Exit the loop if the input is valid
         }
     }
+
+}
+
+int main() {
+    int rows, columns, numForbidden, startX, startY;
+    char closedTourChoice, magicTourChoice;
+    std::vector<std::pair<int, int>> forbiddenPositions;
+
+    userPrompt(rows, columns, numForbidden, forbiddenPositions, closedTourChoice, magicTourChoice, startX, startY);
 
     Board board(rows, columns, numForbidden, forbiddenPositions, {startX, startY});
     KnightTourSolver solver(board);
